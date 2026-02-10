@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TechApp - WL System</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TechApp">
+    <link rel="apple-touch-icon" href="https://via.placeholder.com/192">
+    <link rel="manifest" href="data:application/manifest+json,{'name':'TechApp','short_name':'TechApp','start_url':'.','display':'standalone','background_color':'#f2f2f7','theme_color':'#007bff'}">
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
@@ -186,7 +193,7 @@
         <div class="profile-section" style="padding: 25px;">
             <h2 style="margin:0 0 20px 0; font-size: 1.5rem;">Minha Conta</h2>
             <div id="auth-error" class="auth-error-msg"></div>
-            <input type="email" id="email" placeholder="E-mail" style="width:100%; padding:15px; border-radius:12px; border:1px solid #eee; margin-bottom: 10px;">
+            <input type="email" id="email" placeholder="E-mail" oninput="this.value = this.value.toLowerCase().replace(/\s/g, '')" style="width:100%; padding:15px; border-radius:12px; border:1px solid #eee; margin-bottom: 10px;">
             <input type="password" id="password" placeholder="Senha" style="width:100%; padding:15px; border-radius:12px; border:1px solid #eee; margin-bottom: 10px;">
             
             <button onclick="handleAuth('login')" style="width:100%; background:var(--primary); color:white; padding:18px; border:none; border-radius:12px; font-weight:700; margin-bottom: 10px;">Entrar</button>
@@ -261,7 +268,7 @@
 </div>
 
 <script>
-const SB_URL = "https://lnanvyenbkzvjowmjled.supabase.co"; 
+    const SB_URL = "https://lnanvyenbkzvjowmjled.supabase.co"; 
     const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuYW52eWVuYmt6dmpvd21qbGVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA3MzQ2MjQsImV4cCI6MjA4NjMxMDYyNH0.NuGL43Os2_kpEda6z1B9IRPKLK54KWMy53zY1AldrGM";
     const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
     const MEU_NUMERO = "54 99472-4575";  
@@ -333,16 +340,10 @@ const SB_URL = "https://lnanvyenbkzvjowmjled.supabase.co";
         dots.forEach((d, i) => d.classList.toggle('active', i === index));
     }
 
-    // --- NOVA LÓGICA DE CLIQUE COM DELAY ---
     function handleCardClick(index, serviceId) {
-        // Primeiro desliza o slider
         scrollToIndex(index);
-        // Interrompe o auto-slider
         clearInterval(sliderInterval);
-        // Abre o modal após 350ms (tempo do scroll suave)
-        setTimeout(() => {
-            openDetails(serviceId);
-        }, 350);
+        setTimeout(() => { openDetails(serviceId); }, 350);
     }
 
     function initSliderAuto() {
@@ -433,7 +434,20 @@ const SB_URL = "https://lnanvyenbkzvjowmjled.supabase.co";
             </div>`).join('') : "<p style='text-align:center; color:#ccc;'>Sem comentários.</p>";
     }
 
+    // NOVA FUNÇÃO DE LIKE COM LIMITE POR CONTA
     async function addLike(id, btn) {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) { alert("Faça login para curtir!"); return; }
+
+        const { error } = await supabaseClient
+            .from('likes_record')
+            .insert([{ user_id: user.id, feedback_id: id }]);
+
+        if (error) {
+            if (error.code === '23505') alert("Você já curtiu este comentário!");
+            return;
+        }
+
         let count = parseInt(btn.innerText.replace('❤️ ', '')) + 1;
         btn.innerText = `❤️ ${count}`;
         await supabaseClient.from('feedbacks').update({ likes: count }).eq('id', id);
