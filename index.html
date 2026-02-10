@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TechApp - WL System</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary: #007bff;
+            --secondary: #28a745;
+            --promo: #ff3b30;
+            --dark: #1a1a1a;
+            --white: #ffffff;
+            --bg-current: #f2f2f7;
+            --glass: rgba(255, 255, 255, 0.85);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; padding: 0; background-color: var(--bg-current);
+            transition: background-color 0.8s ease; color: var(--dark); overflow-x: hidden;
+        }
+
+        header {
+            background: var(--glass); backdrop-filter: blur(15px); padding: 15px; 
+            text-align: center; font-weight: 700; font-size: 1.1rem;
+            border-bottom: 1px solid rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 1000;
+        }
+
+        .app-content { padding: 15px 20px 130px 20px; display: none; animation: slideUp 0.4s ease-out; }
+        .app-content.active { display: block; }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- SLIDER --- */
+        .slider-wrapper { margin: 10px -20px 10px; overflow: hidden; position: relative; }
+        .slider-container {
+            display: flex; padding: 0 30px; gap: 15px; overflow-x: auto;
+            scroll-behavior: smooth; scroll-snap-type: x mandatory; scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+        }
+        .slider-container::-webkit-scrollbar { display: none; }
+
+        .slide-card {
+            min-width: 82vw; height: 180px; 
+            color: white; padding: 20px; border-radius: 24px;
+            scroll-snap-align: center; scroll-snap-stop: always;
+            display: flex; flex-direction: column; justify-content: flex-end;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15); position: relative;
+            transition: transform 0.2s;
+        }
+        .slide-card h2 { margin: 0; font-size: 1.4rem; letter-spacing: -0.5px; }
+
+        .btn-detalhes-card {
+            background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3);
+            color: white; padding: 8px 14px; border-radius: 10px; font-size: 0.8rem;
+            width: fit-content; margin-top: 12px; font-weight: 700; pointer-events: none;
+        }
+
+        .slider-dots { display: flex; justify-content: center; gap: 6px; margin: 15px 0 25px; }
+        .dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; transition: 0.3s; }
+        .dot.active { width: 18px; border-radius: 10px; background: var(--primary); }
+
+        /* --- SESSÕES HOME --- */
+        .home-section-title { font-size: 0.85rem; font-weight: 800; color: #888; text-transform: uppercase; margin: 30px 0 15px; letter-spacing: 1px; }
+        
+        .feedback-card {
+            background: white; padding: 15px; border-radius: 20px; margin-bottom: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03); position: relative;
+        }
+        .stars { color: #ffcc00; font-size: 0.8rem; margin-bottom: 5px; }
+        .feedback-text { font-size: 0.85rem; color: #444; line-height: 1.4; font-style: italic; }
+        .feedback-user { font-size: 0.75rem; font-weight: 700; color: #888; margin-top: 8px; display: block; }
+        .like-btn { position: absolute; bottom: 15px; right: 15px; font-size: 0.8rem; background: #f2f2f7; padding: 5px 10px; border-radius: 10px; cursor: pointer; border: none; font-weight: 700; color: #666; }
+
+        /* --- MODAL CENTRALIZADO --- */
+        #modal-details {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 2000; 
+            justify-content: center; align-items: center; padding: 20px;
+        }
+        .details-content {
+            background: var(--white); width: 100%; max-width: 350px; padding: 0; 
+            border-radius: 28px; overflow: hidden;
+            animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes modalPop { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+
+        .modal-header-color { height: 80px; width: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 2.2rem; }
+        .modal-body { padding: 25px; }
+
+        .badge-garantia {
+            background: #fff9e6; color: #d4a017; font-size: 0.7rem; font-weight: 800;
+            padding: 4px 8px; border-radius: 6px; display: inline-block; margin-top: 5px;
+            border: 1px solid #ffeeba;
+        }
+
+        /* --- ABA SERVIÇOS --- */
+        .service-card {
+            background: var(--white); border-radius: 20px; padding: 15px; margin-bottom: 12px;
+            display: flex; align-items: center; gap: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.02);
+        }
+        .service-icon-box {
+            width: 50px; height: 50px; border-radius: 14px; display: flex; 
+            align-items: center; justify-content: center; font-size: 1.5rem; color: white; flex-shrink: 0;
+        }
+        .service-info { flex: 1; }
+        .service-info strong { font-size: 1rem; color: var(--dark); display: block; }
+
+        /* --- PERFIL --- */
+        .user-header { display: flex; align-items: center; gap: 15px; margin-bottom: 25px; }
+        .user-avatar-wrapper { position: relative; width: 65px; height: 65px; cursor: pointer; }
+        .user-avatar { width: 100%; height: 100%; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 700; overflow: hidden; object-fit: cover; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .avatar-edit-badge { position: absolute; bottom: 0; right: 0; background: var(--primary); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; border: 2px solid white; }
+        
+        .profile-section { background: white; border-radius: 20px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .profile-section h4 { margin: 0 0 15px 0; font-size: 0.85rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- NAV & FOOTER --- */
+        .bottom-nav {
+            position: fixed; bottom: 0; width: 100%; background: var(--glass); backdrop-filter: blur(20px);
+            display: flex; justify-content: space-around; padding: 10px 0 30px; border-top: 1px solid rgba(0,0,0,0.08); z-index: 1000;
+        }
+        .nav-item { text-align: center; color: #a0a0a0; font-size: 0.7rem; font-weight: 600; cursor: pointer; flex: 1; }
+        .nav-item.active { color: var(--primary); }
+        .nav-icon { font-size: 1.5rem; display: block; margin-bottom: 2px; }
+
+        .signature-footer {
+            text-align: center; padding: 20px 0 40px; font-size: 0.7rem; color: #bbb;
+            font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+        }
+
+        #modal-success {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--white); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;
+            text-align: center; padding: 20px;
+        }
+
+        .auth-error-msg { color: var(--promo); font-size: 0.75rem; font-weight: 700; margin-bottom: 10px; display: none; padding: 12px; background: #fff5f5; border-radius: 12px; border: 1px solid #ffcccc; }
+    </style>
+</head>
+<body>
+
+<header id="app-title">Início</header>
+
+<div id="home" class="app-content active">
+    <p class="home-section-title" style="margin-top: 0;">🔥 Destaques</p>
+    <div class="slider-wrapper">
+        <div class="slider-container" id="mainSlider"></div>
+    </div>
+    <div class="slider-dots" id="sliderDots"></div>
+
+    <p class="home-section-title">⭐ Avaliações</p>
+    <div style="background: white; padding: 20px; border-radius: 24px; display: flex; justify-content: space-around; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+        <div style="text-align: center;">
+            <div style="font-size: 1.8rem; font-weight: 800; color: var(--dark);">4.9</div>
+            <div class="stars">★★★★★</div>
+            <div style="font-size: 0.6rem; color: #aaa; font-weight: 700;">GOOGLE REVIEWS</div>
+        </div>
+        <div style="height: 40px; width: 1px; background: #eee;"></div>
+        <div style="text-align: center;">
+            <div style="font-size: 1.8rem; font-weight: 800; color: var(--dark);">+500</div>
+            <div style="font-size: 0.7rem; color: var(--secondary); font-weight: 700;">CLIENTES</div>
+            <div style="font-size: 0.6rem; color: #aaa; font-weight: 700;">FELIZES</div>
+        </div>
+    </div>
+
+    <p class="home-section-title">💬 Comentários Recentes</p>
+    <div id="home-feedbacks"></div>
+
+    <div class="signature-footer">Desenvolvido por WL System</div>
+</div>
+
+<div id="services" class="app-content">
+    <h3 style="margin-bottom: 18px; font-size: 1.2rem; font-weight: 800;">Todos os Serviços</h3>
+    <div id="lista-servicos"></div>
+    <div class="signature-footer">Desenvolvido por WL System</div>
+</div>
+
+<div id="profile" class="app-content">
+    <div id="auth-section">
+        <div class="profile-section" style="padding: 25px;">
+            <h2 style="margin:0 0 20px 0; font-size: 1.5rem;">Minha Conta</h2>
+            <div id="auth-error" class="auth-error-msg"></div>
+            <input type="email" id="email" placeholder="E-mail" style="width:100%; padding:15px; border-radius:12px; border:1px solid #eee; margin-bottom: 10px;">
+            <input type="password" id="password" placeholder="Senha" style="width:100%; padding:15px; border-radius:12px; border:1px solid #eee; margin-bottom: 10px;">
+            
+            <button onclick="handleAuth('login')" style="width:100%; background:var(--primary); color:white; padding:18px; border:none; border-radius:12px; font-weight:700; margin-bottom: 10px;">Entrar</button>
+            <button onclick="handleAuth('signup')" style="width:100%; background:white; color:var(--primary); border: 2px solid var(--primary); padding:15px; border-radius:12px; font-weight:700;">Criar uma nova conta</button>
+            
+            <button onclick="recoverPassword()" style="width:100%; background:none; color:#888; border:none; margin-top: 15px; font-size: 0.8rem; font-weight: 600; width: 100%;">Esqueci minha senha</button>
+        </div>
+    </div>
+    
+    <div id="user-section" style="display:none">
+        <div class="user-header">
+            <div class="user-avatar-wrapper" onclick="document.getElementById('avatar-input').click()">
+                <div id="user-avatar" class="user-avatar">?</div>
+                <div class="avatar-edit-badge">✎</div>
+                <input type="file" id="avatar-input" style="display:none" accept="image/*" onchange="handleAvatarUpload(this)">
+            </div>
+            <div>
+                <strong id="display-name" style="font-size: 1.2rem; display: block;">Usuário</strong>
+                <span id="user-email-label" style="color: #888; font-size: 0.85rem;">-</span>
+            </div>
+        </div>
+
+        <div class="profile-section">
+            <h4>💬 Publicar Comentário</h4>
+            <textarea id="user-comment" rows="3" placeholder="Sua experiência..." style="width:100%; border-radius:12px; border:1px solid #eee; padding:10px; margin-bottom:10px; font-family:inherit;"></textarea>
+            <button onclick="postComment()" style="width:100%; background: var(--dark); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 700;">Postar na Home</button>
+        </div>
+
+        <div class="profile-section">
+            <h4>📋 Meu Histórico</h4>
+            <div id="history-list"></div>
+        </div>
+        <div class="profile-section">
+            <button onclick="handleLogout()" style="width:100%; background:none; border:none; color:#ff3b30; font-weight:700;">Sair da Conta</button>
+        </div>
+    </div>
+    <div class="signature-footer">Desenvolvido por WL System</div>
+</div>
+
+<div id="modal-details" onclick="closeDetails()">
+    <div class="details-content" onclick="event.stopPropagation()">
+        <div id="modal-color-top" class="modal-header-color">⚙️</div>
+        <div class="modal-body">
+            <h2 id="det-titulo" style="margin:0;"></h2>
+            <div class="badge-garantia">🛡️ 2 MESES DE GARANTIA</div>
+            <p id="det-desc" style="color:#666; margin: 15px 0 25px; line-height: 1.5;"></p>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <span style="color:#888; font-weight: 600;">Valor</span>
+                <span id="det-preco" style="font-weight: 800; font-size: 1.2rem;"></span>
+            </div>
+            <button id="det-btn" style="width:100%; background:var(--primary); color:white; padding:18px; border:none; border-radius:18px; font-weight:700;">Contratar via WhatsApp</button>
+        </div>
+    </div>
+</div>
+
+<nav class="bottom-nav">
+    <div class="nav-item active" id="btn-home" onclick="switchTab('home', 'Início', this)">
+        <span class="nav-icon">🏠</span> Início
+    </div>
+    <div class="nav-item" id="btn-services" onclick="switchTab('services', 'Serviços', this)">
+        <span class="nav-icon">🛠️</span> Serviços
+    </div>
+    <div class="nav-item" id="btn-profile" onclick="switchTab('profile', 'Perfil', this)">
+        <span class="nav-icon">👤</span> Perfil
+    </div>
+</nav>
+
+<div id="modal-success">
+    <div id="modal-icon" style="width: 70px; height: 70px; background: var(--secondary); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-size: 35px; margin: 0 auto;">✓</div>
+    <h2 id="modal-msg" style="margin-top: 15px;"></h2>
+    <p id="modal-submsg" style="color: #666;"></p>
+</div>
+
+<script>
+const SB_URL = "https://lnanvyenbkzvjowmjled.supabase.co"; 
+    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuYW52eWVuYmt6dmpvd21qbGVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA3MzQ2MjQsImV4cCI6MjA4NjMxMDYyNH0.NuGL43Os2_kpEda6z1B9IRPKLK54KWMy53zY1AldrGM";
+    const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+    const MEU_NUMERO = "54 99472-4575";  
+
+    const servicosDB = [
+        {id: 0, nome: "Limpeza Técnica", preco: 150, desc: "Limpeza interna profunda, troca de pasta térmica e higienização física completa.", cor: "linear-gradient(135deg, #fd7e14, #d35400)", bg: "#fff3e0", icone: "🧹"},
+        {id: 1, nome: "Upgrade SSD/RAM", preco: 150, desc: "Aumento de velocidade e performance com componentes de última geração.", cor: "linear-gradient(135deg, #6f42c1, #4e2a8e)", bg: "#f3e5f5", icone: "⚡"},
+        {id: 2, nome: "Formatação Pro", preco: 200, desc: "Instalação limpa do sistema com backup de dados e drivers atualizados.", cor: "linear-gradient(135deg, #007bff, #0056b3)", bg: "#e3f2fd", icone: "💾"},
+        {id: 3, nome: "Configuração Wi-Fi", preco: 120, desc: "Otimização de rede wireless e configuração de repetidores de sinal.", cor: "linear-gradient(135deg, #20c997, #117a5d)", bg: "#e8f5e9", icone: "📶"},
+        {id: 4, nome: "Montagem PC Gamer", preco: 300, desc: "Montagem profissional com cable management e testes de estabilidade.", cor: "linear-gradient(135deg, #343a40, #212529)", bg: "#f1f1f1", icone: "🕹️"},
+        {id: 5, nome: "Remoção de Vírus", preco: 120, desc: "Limpeza total de malwares, adwares e proteção de arquivos pessoais.", cor: "linear-gradient(135deg, #dc3545, #a71d2a)", bg: "#fff5f5", icone: "🛡️"},
+        {id: 6, nome: "Recuperação Dados", preco: 250, desc: "Tentativa profissional de resgate de arquivos de HDs ou Pendrives corrompidos.", cor: "linear-gradient(135deg, #ffc107, #e0a800)", bg: "#fffdeb", icone: "🔍"}
+    ];
+
+    let currentActiveIndex = 0;
+    let sliderInterval;
+
+    async function handleAuth(type) {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const err = document.getElementById('auth-error');
+        err.style.display = 'none';
+        if(!email || !password) { err.innerText = "Preencha todos os campos."; err.style.display = 'block'; return; }
+        const { data, error } = type === 'login' 
+            ? await supabaseClient.auth.signInWithPassword({ email, password }) 
+            : await supabaseClient.auth.signUp({ email, password });
+        if (error) {
+            let msg = error.message;
+            if(msg.includes("Invalid login")) msg = "E-mail ou senha incorretos.";
+            err.innerText = msg; err.style.display = 'block';
+        } else {
+            showModal("Sucesso!", "Aguarde...");
+            setTimeout(checkUser, 1000);
+        }
+    }
+
+    async function recoverPassword() {
+        const email = document.getElementById('email').value;
+        if(!email) { alert("Digite seu e-mail."); return; }
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
+        alert(error ? "Erro: " + error.message : "E-mail enviado!");
+    }
+
+    async function checkUser() {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (user) {
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('user-section').style.display = 'block';
+            document.getElementById('display-name').innerText = user.email.split('@')[0].toUpperCase();
+            document.getElementById('user-email-label').innerText = user.email;
+            const avatar = user.user_metadata?.avatar_url;
+            if(avatar) document.getElementById('user-avatar').innerHTML = `<img src="${avatar}" style="width:100%; height:100%; object-fit:cover;">`;
+            else document.getElementById('user-avatar').innerText = user.email[0].toUpperCase();
+            loadHistory(user.id);
+            return true;
+        }
+        return false;
+    }
+
+    function scrollToIndex(index) {
+        const s = document.getElementById('mainSlider');
+        const dots = document.querySelectorAll('.dot');
+        if(!s || !s.children[index]) return;
+        currentActiveIndex = index;
+        const cardWidth = s.children[0].offsetWidth + 15;
+        s.scrollTo({ left: index * cardWidth, behavior: 'smooth' });
+        const bg = s.children[index].getAttribute('data-bg');
+        document.body.style.setProperty('--bg-current', bg);
+        dots.forEach((d, i) => d.classList.toggle('active', i === index));
+    }
+
+    // --- NOVA LÓGICA DE CLIQUE COM DELAY ---
+    function handleCardClick(index, serviceId) {
+        // Primeiro desliza o slider
+        scrollToIndex(index);
+        // Interrompe o auto-slider
+        clearInterval(sliderInterval);
+        // Abre o modal após 350ms (tempo do scroll suave)
+        setTimeout(() => {
+            openDetails(serviceId);
+        }, 350);
+    }
+
+    function initSliderAuto() {
+        clearInterval(sliderInterval);
+        sliderInterval = setInterval(() => {
+            if(!document.getElementById('home').classList.contains('active')) return;
+            currentActiveIndex = (currentActiveIndex + 1) % 4;
+            scrollToIndex(currentActiveIndex);
+        }, 5000);
+    }
+
+    function render() {
+        document.getElementById('mainSlider').innerHTML = servicosDB.slice(0, 4).map((s, i) => `
+            <div class="slide-card" style="background: ${s.cor};" data-bg="${s.bg}" onclick="handleCardClick(${i}, ${s.id})">
+                <span style="font-size: 2.2rem; position: absolute; top: 20px; right: 20px; opacity: 0.3;">${s.icone}</span>
+                <h2>${s.nome}</h2>
+                <div class="btn-detalhes-card">Ver detalhes</div>
+            </div>`).join('');
+        document.getElementById('sliderDots').innerHTML = servicosDB.slice(0, 4).map((_, i) => `<div class="dot ${i === 0 ? 'active' : ''}" onclick="scrollToIndex(${i})"></div>`).join('');
+        document.getElementById('lista-servicos').innerHTML = servicosDB.map(s => `
+            <div class="service-card" onclick="openDetails(${s.id})">
+                <div class="service-icon-box" style="background: ${s.cor}">${s.icone}</div>
+                <div class="service-info"><strong>${s.nome}</strong><div class="badge-garantia">2 Meses de Garantia</div></div>
+                <div style="font-weight: 800; font-size: 0.9rem;">R$ ${s.preco}</div>
+            </div>`).join('');
+    }
+
+    async function openDetails(id) {
+        const s = servicosDB.find(item => item.id === id);
+        document.getElementById('det-titulo').innerText = s.nome;
+        document.getElementById('det-desc').innerText = s.desc;
+        document.getElementById('det-preco').innerText = `R$ ${s.preco},00`;
+        const top = document.getElementById('modal-color-top');
+        top.style.background = s.cor; top.innerText = s.icone;
+        document.getElementById('det-btn').onclick = async () => {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if(!user) {
+                closeDetails();
+                switchTab('profile', 'Perfil', document.getElementById('btn-profile'));
+                document.getElementById('auth-error').innerText = "Crie uma conta para contratar.";
+                document.getElementById('auth-error').style.display = 'block';
+            } else {
+                await supabaseClient.from('agendamentos').insert([{ servico: s.nome, valor: s.preco, user_id: user.id }]);
+                window.location.href = `https://wa.me/${MEU_NUMERO}?text=Quero contratar: ${s.nome}`;
+            }
+        };
+        document.getElementById('modal-details').style.display = 'flex';
+        clearInterval(sliderInterval);
+    }
+
+    function closeDetails() { 
+        document.getElementById('modal-details').style.display = 'none'; 
+        initSliderAuto();
+    }
+
+    async function handleAvatarUpload(input) {
+        const file = input.files[0];
+        if(!file) return;
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        const path = `avatars/${user.id}-${Date.now()}`;
+        const { error } = await supabaseClient.storage.from('avatars').upload(path, file);
+        if(!error) {
+            const { data: { publicUrl } } = supabaseClient.storage.from('avatars').getPublicUrl(path);
+            await supabaseClient.auth.updateUser({ data: { avatar_url: publicUrl } });
+            checkUser();
+        }
+    }
+
+    async function postComment() {
+        const txt = document.getElementById('user-comment').value;
+        if(!txt) return;
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        await supabaseClient.from('feedbacks').insert([{ user_id: user.id, texto: txt, user_email: user.email.split('@')[0] }]);
+        document.getElementById('user-comment').value = "";
+        showModal("Publicado!", "Obrigado!");
+        loadFeedbacks();
+    }
+
+    async function loadFeedbacks() {
+        const { data } = await supabaseClient.from('feedbacks').select('*').order('created_at', { ascending: false }).limit(3);
+        const container = document.getElementById('home-feedbacks');
+        container.innerHTML = (data?.length) ? data.map(f => `
+            <div class="feedback-card">
+                <div class="stars">★★★★★</div>
+                <p class="feedback-text">"${f.texto}"</p>
+                <span class="feedback-user">@${f.user_email}</span>
+                <button class="like-btn" onclick="addLike('${f.id}', this)">❤️ ${f.likes || 0}</button>
+            </div>`).join('') : "<p style='text-align:center; color:#ccc;'>Sem comentários.</p>";
+    }
+
+    async function addLike(id, btn) {
+        let count = parseInt(btn.innerText.replace('❤️ ', '')) + 1;
+        btn.innerText = `❤️ ${count}`;
+        await supabaseClient.from('feedbacks').update({ likes: count }).eq('id', id);
+    }
+
+    async function loadHistory(uid) {
+        const { data } = await supabaseClient.from('agendamentos').select('*').eq('user_id', uid).order('created_at', { ascending: false });
+        const list = document.getElementById('history-list');
+        list.innerHTML = data?.length ? data.map(i => `<div style="padding:12px; border-bottom:1px solid #eee;"><strong>${i.servico}</strong></div>`).join('') : "Sem histórico.";
+    }
+
+    function switchTab(id, title, el) {
+        document.querySelectorAll('.app-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        el.classList.add('active');
+        document.getElementById('app-title').innerText = title;
+        if(id !== 'home') document.body.style.setProperty('--bg-current', '#f2f2f7');
+        window.scrollTo(0,0);
+    }
+
+    function showModal(m, sub) {
+        document.getElementById('modal-msg').innerText = m;
+        document.getElementById('modal-submsg').innerText = sub;
+        document.getElementById('modal-success').style.display = 'flex';
+        setTimeout(() => document.getElementById('modal-success').style.display = 'none', 2000);
+    }
+
+    function handleLogout() { supabaseClient.auth.signOut(); location.reload(); }
+
+    window.onload = () => { render(); checkUser(); loadFeedbacks(); initSliderAuto(); };
+</script>
+</body>
+</html>
